@@ -1,5 +1,5 @@
 
-name: RailPulse CI
+name: Dutch Railway OLAP CI
 
 on:
   pull_request:
