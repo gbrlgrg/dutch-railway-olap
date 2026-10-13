@@ -35,37 +35,39 @@ Check code quality with `npm run lint` and `npm run typecheck`. This scaffold ru
 
 ## Run the database
 
-Install Docker with Docker Compose (Docker Desktop includes both), and make sure Docker is running. Run the commands below from the repository root.
+The database runs in Docker as PostgreSQL 17. Start Docker Desktop before running the commands below.
 
-1. Create a `.env` file in the repository root, or update your existing one:
+### First-time setup
 
-   ```dotenv
-   POSTGRES_USER="stadvdb_mco1"
-   POSTGRES_PASSWORD=""
-   POSTGRES_DB="dutch-railway"
-   POSTGRES_PORT=5432
+Run commands from the repository root (the folder containing `docker-compose.yml`). If your terminal is currently in `backend/`, run `cd ..` first.
 
-   ```
+Create a `.env` file in the repository root if you do not already have one:
 
-   These are example credentials for local development. Keep `.env` out of version control.
+```dotenv
+POSTGRES_USER=stadvdb_mco1
+POSTGRES_PASSWORD=local_dev_password
+POSTGRES_DB=dutch-railway
+```
 
-2. Start PostgreSQL 17 and wait for it to become healthy:
+Use a non-empty password for a new database and keep `.env` out of version control. If your database is already initialized, keep its existing credentials.
 
-   ```sh
-   docker compose up -d --wait postgres
-   ```
+### Start and check the database
 
-3. Check the database status:
+```powershell
+docker compose up -d --wait postgres
+docker compose ps
+```
 
-   ```sh
-   docker compose ps
-   ```
+`up` creates the container if needed, starts it in the background, and waits for the health check. A successful status looks like:
 
-   To troubleshoot startup, view the logs:
+```text
+NAME          SERVICE    STATUS                   PORTS
+postgres_db   postgres   Up ... (healthy)          127.0.0.1:5432->5432/tcp
+```
 
-   ```sh
-   docker compose logs postgres
-   ```
+An empty `docker compose ps` table means no containers are running for this project. Use `docker compose ps -a` to also see stopped containers.
+
+### Connect to PostgreSQL
 
 Connect using a PostgreSQL client with these settings:
 
@@ -79,16 +81,46 @@ Connect using a PostgreSQL client with these settings:
 
 With the example settings above, open an interactive SQL session inside the container:
 
-```sh
-docker compose exec postgres psql -U railway -d railway
+```powershell
+docker compose exec postgres psql -U stadvdb_mco1 -d dutch-railway
 ```
 
-If you use different `.env` values, replace `railway` after `-U` and `-d` with your user and database names. Type `\q` to exit the SQL session.
+If your `.env` values differ, replace the names after `-U` and `-d`. Try `SELECT 1;` to check the connection, and type `\q` to exit the SQL session. Exiting `psql` does not stop the database.
 
-Stop the database:
+### Stop and restart
 
-```sh
-docker compose down
+Stop just PostgreSQL while keeping its container and saved data:
+
+```powershell
+docker compose stop postgres
 ```
 
-Database data persists in the `postgres_data` Docker volume across restarts and shutdowns. The `.env` settings initialize the database only when that volume is empty; changing them later does not update an existing database's user, password, or name. Port `5432` must be available on your machine.
+Start the stopped container again:
+
+```powershell
+docker compose start postgres
+docker compose ps
+```
+
+You can also use `docker compose up -d --wait postgres` again to start it and wait until healthy.
+
+To remove the project's containers and network while keeping database data, use `docker compose down`.
+
+Data is stored in the `postgres_data` Docker volume and survives container and computer restarts. **`docker compose down -v` deletes the database volume and its saved data.** Changing the user, password, or database name in `.env` does not update an already initialized database.
+
+### Troubleshooting
+
+View database logs if startup fails:
+
+```powershell
+docker compose logs --tail 100 postgres
+```
+
+If Docker reports that port `5432` is unavailable or access is forbidden, check for another local PostgreSQL instance in PowerShell:
+
+```powershell
+Get-NetTCPConnection -LocalPort 5432 -State Listen |
+  Select-Object LocalAddress, LocalPort, OwningProcess
+```
+
+Stop the conflicting PostgreSQL instance if you do not need it, then retry startup. Alternatively, change the port mapping in `docker-compose.yml` to `"127.0.0.1:5433:5432"` and run `docker compose up -d --wait postgres` again. Connect from your computer using port `5433` afterward; PostgreSQL inside the container still uses `5432`. Setting `POSTGRES_PORT` in `.env` alone does not change the current Compose port mapping.
