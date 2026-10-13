@@ -1,5 +1,38 @@
 # dutch-railway-olap
 
+## Run the backend
+
+Install Node.js 24 or newer (with npm), then run:
+
+```sh
+cd backend
+npm install
+npm run dev
+```
+
+The TypeScript Fastify server starts at `http://127.0.0.1:3000` and reloads when source files change. No endpoints are registered yet, so requests return `404 Not Found`. Press Ctrl+C to stop it.
+
+`npm run dev` uses readable logs with local timestamps and colored levels in the terminal. `npm start` keeps structured JSON logs.
+
+Optionally create `backend/.env` by copying `backend/.env.example` to customize these settings:
+
+```dotenv
+HOST=127.0.0.1
+PORT=3000
+LOG_LEVEL=info
+```
+
+Run backend commands from `backend/`. Existing environment variables take precedence over `.env`; the root database `.env` is separate. Restart the server after changing environment settings.
+
+To compile and run the backend:
+
+```sh
+npm run build
+npm start
+```
+
+Check code quality with `npm run lint` and `npm run typecheck`. This scaffold runs locally without a database connection.
+
 ## Run the database
 
 Install Docker with Docker Compose (Docker Desktop includes both), and make sure Docker is running. Run the commands below from the repository root.
