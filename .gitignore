@@ -2,6 +2,8 @@
 .env.*
 !.env.example
 
+.venv
+
 node_modules/
 dist/
 coverage/
@@ -10,7 +12,7 @@ __pycache__/
 .pytest_cache/
 *.pyc
 
-data/
+
 *.csv
 *.parquet
 *.duckdb
