@@ -1,21 +1,27 @@
 import { CalendarRange, RefreshCw } from "lucide-react";
 
 import { MobileSidebar } from "@/components/layout/MobileSidebar";
+import type { PageId } from "@/components/layout/navigation";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { formatDemoTimestamp } from "@/lib/formatters";
-import type { DateRangePreset } from "@/types/overview";
+import type { DateRangePreset } from "@/types/timeTrend";
 
 const DATE_RANGE_OPTIONS: { value: DateRangePreset; label: string }[] = [
   { value: "last-7-days", label: "Last 7 days" },
   { value: "last-30-days", label: "Last 30 days" },
   { value: "last-3-months", label: "Last 3 months" },
+  { value: "last-6-months", label: "Last 6 months" },
   { value: "last-12-months", label: "Last 12 months" },
   { value: "all-data", label: "All available data" },
 ];
 
 type AppHeaderProps = {
+  title?: string;
+  subtitle?: string;
+  activePage?: PageId;
+  onNavigate?: (page: PageId) => void;
   dateRange: DateRangePreset;
   onDateRangeChange: (value: DateRangePreset) => void;
   onRefresh: () => void;
@@ -25,6 +31,10 @@ type AppHeaderProps = {
 };
 
 export function AppHeader({
+  title = "Overview",
+  subtitle = "A high-level view of railway service reliability and performance.",
+  activePage = "overview",
+  onNavigate,
   dateRange,
   onDateRangeChange,
   onRefresh,
@@ -35,19 +45,17 @@ export function AppHeader({
   return (
     <header className="flex flex-col gap-4 border-b bg-card px-4 py-4 sm:px-6 lg:flex-row lg:items-center lg:justify-between">
       <div className="flex items-start gap-3">
-        <MobileSidebar />
+        <MobileSidebar activePage={activePage} onNavigate={onNavigate} />
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="text-xl font-semibold tracking-tight">Overview</h1>
+            <h1 className="text-xl font-semibold tracking-tight">{title}</h1>
             {isDemoData && (
               <Badge variant="outline" className="border-amber-300 bg-amber-50 text-amber-800">
                 Demo data
               </Badge>
             )}
           </div>
-          <p className="text-sm text-muted-foreground">
-            A high-level view of railway service reliability and performance.
-          </p>
+          <p className="text-sm text-muted-foreground">{subtitle}</p>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2">
@@ -62,7 +70,7 @@ export function AppHeader({
           items={DATE_RANGE_OPTIONS}
         >
           <SelectTrigger aria-label="Date range" className="min-w-44 bg-card">
-            <CalendarRange className="text-muted-foreground" aria-hidden="true" />
+            <CalendarRange className="text-muted-foreground mr-1" aria-hidden="true" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

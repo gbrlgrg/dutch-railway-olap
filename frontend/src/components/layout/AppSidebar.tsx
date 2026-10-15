@@ -1,12 +1,26 @@
 import { TrainFront } from "lucide-react";
 
-import { primaryNavItems, secondaryNavItems, type NavItem } from "@/components/layout/navigation";
+import {
+  primaryNavItems,
+  secondaryNavItems,
+  type NavItem,
+  type PageId,
+} from "@/components/layout/navigation";
 import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
-function NavEntry({ item }: { item: NavItem }) {
+function NavEntry({
+  item,
+  isActive,
+  onNavigate,
+}: {
+  item: NavItem;
+  isActive: boolean;
+  onNavigate?: (page: PageId) => void;
+}) {
   const Icon = item.icon;
   const base = "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm";
+
   if (!item.isImplemented) {
     return (
       <span
@@ -22,26 +36,34 @@ function NavEntry({ item }: { item: NavItem }) {
       </span>
     );
   }
+
   return (
-    <a
-      href="#"
-      aria-current={item.isActive ? "page" : undefined}
+    <button
+      type="button"
+      onClick={() => item.id && onNavigate?.(item.id)}
+      aria-current={isActive ? "page" : undefined}
       className={cn(
         base,
-        "outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring",
-        item.isActive
+        "outline-none transition-colors focus-visible:ring-2 focus-visible:ring-sidebar-ring text-left cursor-pointer",
+        isActive
           ? "bg-sidebar-accent font-medium text-sidebar-accent-foreground shadow-[inset_3px_0_0_var(--sidebar-ring)]"
           : "text-sidebar-foreground hover:bg-sidebar-accent/60",
       )}
     >
       <Icon className="size-4 shrink-0" aria-hidden="true" />
       <span className="truncate">{item.label}</span>
-    </a>
+    </button>
   );
 }
 
 /** Sidebar contents shared by the desktop sidebar and the mobile sheet. */
-export function SidebarContent() {
+export function SidebarContent({
+  activePage,
+  onNavigate,
+}: {
+  activePage: PageId;
+  onNavigate?: (page: PageId) => void;
+}) {
   return (
     <div className="flex h-full flex-col gap-6 bg-sidebar p-4 text-sidebar-foreground">
       <div className="flex items-center gap-2 px-2">
@@ -54,7 +76,11 @@ export function SidebarContent() {
         <ul className="space-y-1">
           {primaryNavItems.map((item) => (
             <li key={item.label}>
-              <NavEntry item={item} />
+              <NavEntry
+                item={item}
+                isActive={item.id === activePage}
+                onNavigate={onNavigate}
+              />
             </li>
           ))}
         </ul>
@@ -62,7 +88,7 @@ export function SidebarContent() {
         <ul className="space-y-1">
           {secondaryNavItems.map((item) => (
             <li key={item.label}>
-              <NavEntry item={item} />
+              <NavEntry item={item} isActive={false} />
             </li>
           ))}
         </ul>
@@ -71,10 +97,16 @@ export function SidebarContent() {
   );
 }
 
-export function AppSidebar() {
+export function AppSidebar({
+  activePage,
+  onNavigate,
+}: {
+  activePage: PageId;
+  onNavigate?: (page: PageId) => void;
+}) {
   return (
     <aside className="sticky top-0 hidden h-screen w-64 shrink-0 border-r border-sidebar-border bg-sidebar lg:block">
-      <SidebarContent />
+      <SidebarContent activePage={activePage} onNavigate={onNavigate} />
     </aside>
   );
 }

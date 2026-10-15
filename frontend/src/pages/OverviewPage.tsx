@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Ban, Clock, MapPin, TrainFront } from "lucide-react";
 
 import { AppHeader } from "@/components/layout/AppHeader";
+import type { PageId } from "@/components/layout/navigation";
 import { CancellationTrendChart } from "@/components/overview/CancellationTrendChart";
 import { ErrorState } from "@/components/overview/ChartCard";
 import { DelayTrendChart } from "@/components/overview/DelayTrendChart";
@@ -24,6 +25,7 @@ const DEFAULT_GRANULARITY: Record<DateRangePreset, Granularity> = {
   "last-7-days": "day",
   "last-30-days": "day",
   "last-3-months": "day",
+  "last-6-months": "month",
   "last-12-months": "month",
   "all-data": "month",
 };
@@ -32,7 +34,11 @@ function vsPrevious(text: string | null): string | null {
   return text && text !== "—" ? `${text} vs previous period` : null;
 }
 
-export function OverviewPage() {
+type OverviewPageProps = {
+  onNavigate?: (page: PageId) => void;
+};
+
+export function OverviewPage({ onNavigate }: OverviewPageProps) {
   const [dateRange, setDateRange] = useState<DateRangePreset>("last-12-months");
   const [granularity, setGranularity] = useState<Granularity>(DEFAULT_GRANULARITY["last-12-months"]);
   const { status, data, refresh } = useOverviewData({ dateRange, granularity });
@@ -50,6 +56,10 @@ export function OverviewPage() {
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <AppHeader
+        title="Overview"
+        subtitle="A high-level view of railway service reliability and performance."
+        activePage="overview"
+        onNavigate={onNavigate}
         dateRange={dateRange}
         onDateRangeChange={handleDateRangeChange}
         onRefresh={refresh}
@@ -113,7 +123,7 @@ export function OverviewPage() {
               <HighestDelayStationsTable data={data?.highestDelayStations ?? []} status={sectionStatus} onRetry={refresh} />
             </div>
 
-            <ExploreFurtherCards />
+            <ExploreFurtherCards onNavigate={onNavigate} />
 
             {data?.isDemoData && (
               <p className="text-xs text-muted-foreground">

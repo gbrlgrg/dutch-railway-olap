@@ -8,6 +8,7 @@ export type DateRangePreset =
   | "last-7-days"
   | "last-30-days"
   | "last-3-months"
+  | "last-6-months"
   | "last-12-months"
   | "all-data";
 

@@ -1,5 +1,4 @@
 import {
-  Building2,
   ChartNoAxesCombined,
   Database,
   LayoutDashboard,
@@ -8,19 +7,20 @@ import {
   type LucideIcon,
 } from "lucide-react";
 
+export type PageId = "overview" | "time-trend" | "olap-explorer";
+
 export type NavItem = {
+  id?: PageId;
   label: string;
   icon: LucideIcon;
   /** Only implemented pages are navigable; others render as disabled placeholders. */
   isImplemented: boolean;
-  isActive?: boolean;
 };
 
 export const primaryNavItems: NavItem[] = [
-  { label: "Overview", icon: LayoutDashboard, isImplemented: true, isActive: true },
-  { label: "Time & Trend Analysis", icon: ChartNoAxesCombined, isImplemented: false },
-  { label: "Operator & Station Analysis", icon: Building2, isImplemented: false },
-  { label: "OLAP Explorer", icon: PanelsTopLeft, isImplemented: false },
+  { id: "overview", label: "Overview", icon: LayoutDashboard, isImplemented: true },
+  { id: "time-trend", label: "Time & Trend Analysis", icon: ChartNoAxesCombined, isImplemented: true },
+  { id: "olap-explorer", label: "OLAP Explorer", icon: PanelsTopLeft, isImplemented: false },
 ];
 
 export const secondaryNavItems: NavItem[] = [

@@ -1,51 +1,100 @@
-import { Building2, ChartNoAxesCombined, PanelsTopLeft, type LucideIcon } from "lucide-react";
+import { ArrowRight, ChartNoAxesCombined, PanelsTopLeft, type LucideIcon } from "lucide-react";
 
+import type { PageId } from "@/components/layout/navigation";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
+import { cn } from "@/lib/utils";
 
-type ExploreLink = { title: string; description: string; icon: LucideIcon };
+type ExploreLink = {
+  id?: PageId;
+  title: string;
+  description: string;
+  icon: LucideIcon;
+  isImplemented: boolean;
+};
 
 const LINKS: ExploreLink[] = [
   {
+    id: "time-trend",
     title: "Time & Trend Analysis",
-    description: "Inspect reliability at different time granularities.",
+    description: "Inspect reliability and delay trends across yearly, quarterly, monthly, and daily hierarchies.",
     icon: ChartNoAxesCombined,
+    isImplemented: true,
   },
   {
-    title: "Operator & Station Analysis",
-    description: "Compare performance by operator and station.",
-    icon: Building2,
-  },
-  {
+    id: "olap-explorer",
     title: "OLAP Explorer",
-    description: "Choose dimensions and measures for roll-up, drill-down, slice, dice, and pivot analysis.",
+    description: "Multi-dimensional cube analysis: choose dimensions, roll-up, drill-down, slice, dice, and pivot.",
     icon: PanelsTopLeft,
+    isImplemented: false,
   },
 ];
 
-/** Entry points to future pages. Rendered as non-interactive until routes exist. */
-export function ExploreFurtherCards() {
+type ExploreFurtherCardsProps = {
+  onNavigate?: (page: PageId) => void;
+};
+
+export function ExploreFurtherCards({ onNavigate }: ExploreFurtherCardsProps) {
   return (
     <section aria-labelledby="explore-further-heading" className="space-y-3">
       <h2 id="explore-further-heading" className="text-base font-semibold">
         Explore further
       </h2>
-      <ul className="grid gap-4 md:grid-cols-3">
-        {LINKS.map(({ title, description, icon: Icon }) => (
+      <ul className="grid gap-4 md:grid-cols-2">
+        {LINKS.map(({ id, title, description, icon: Icon, isImplemented }) => (
           <li key={title}>
-            <Card size="sm" className="h-full" aria-disabled="true">
-              <CardContent className="flex gap-3">
-                <span className="flex size-8 shrink-0 items-center justify-center rounded-md bg-muted text-muted-foreground">
-                  <Icon className="size-4" aria-hidden="true" />
-                </span>
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <h3 className="text-sm font-medium">{title}</h3>
-                    <span className="rounded bg-muted px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-muted-foreground">
-                      Coming soon
-                    </span>
+            <Card
+              size="sm"
+              className={cn(
+                "h-full transition-all",
+                isImplemented ? "hover:border-primary/50 hover:shadow-xs cursor-pointer" : "opacity-85",
+              )}
+              onClick={() => {
+                if (isImplemented && id && onNavigate) {
+                  onNavigate(id);
+                }
+              }}
+            >
+              <CardContent className="flex items-start justify-between gap-4 p-4">
+                <div className="flex gap-3">
+                  <span
+                    className={cn(
+                      "flex size-9 shrink-0 items-center justify-center rounded-md",
+                      isImplemented
+                        ? "bg-primary/10 text-primary"
+                        : "bg-muted text-muted-foreground",
+                    )}
+                  >
+                    <Icon className="size-4.5" aria-hidden="true" />
+                  </span>
+                  <div className="space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h3 className="text-sm font-semibold">{title}</h3>
+                      {isImplemented ? (
+                        <Badge variant="outline" className="border-primary/30 text-primary bg-primary/5 text-[10px] uppercase">
+                          Available
+                        </Badge>
+                      ) : (
+                        <Badge variant="secondary" className="text-[10px] uppercase">
+                          Next
+                        </Badge>
+                      )}
+                    </div>
+                    <p className="text-xs text-muted-foreground leading-relaxed">{description}</p>
                   </div>
-                  <p className="text-sm text-muted-foreground">{description}</p>
                 </div>
+
+                {isImplemented && (
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="shrink-0 size-8 text-muted-foreground hover:text-primary"
+                    aria-label={`Open ${title}`}
+                  >
+                    <ArrowRight className="size-4" aria-hidden="true" />
+                  </Button>
+                )}
               </CardContent>
             </Card>
           </li>
