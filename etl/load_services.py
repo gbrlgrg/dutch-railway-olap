@@ -1,6 +1,7 @@
 import csv
 import os
 from pathlib import Path
+from time import monotonic
 
 ROOT = Path(__file__).resolve().parents[1]
 CSV_PATH = ROOT / "data" / "services-2025.csv"
@@ -16,17 +17,35 @@ EXPECTED_HEADERS = (
     "Stop:Planned platform,Stop:Actual platform"
 ).split(",")
 
+def report(message, started):
+    print(f"[{monotonic() - started:,.1f}s] {message}", flush=True)
+
+
 def copy_csv(cur, path):
     with path.open("rb") as source:
         header = source.readline().decode("utf-8-sig")
         if next(csv.reader([header]), None) != EXPECTED_HEADERS:
             raise ValueError("CSV headers do not match the expected format.")
+        total = os.fstat(source.fileno()).st_size - source.tell()
+        transferred = 0
+        started = last_update = monotonic()
         with cur.copy("""
             COPY stage_services FROM STDIN
             WITH (FORMAT CSV, ENCODING 'UTF8')
         """) as copy:
             while block := source.read(1024 * 1024):
                 copy.write(block)
+                transferred += len(block)
+                now = monotonic()
+                if now - last_update >= 5:
+                    print(
+                        f"CSV transfer: {transferred / total:.1%} "
+                        f"({transferred / 1024**2:,.1f}/{total / 1024**2:,.1f} MiB), "
+                        f"{transferred / 1024**2 / (now - started):.1f} MiB/s",
+                        flush=True,
+                    )
+                    last_update = now
+        report(f"CSV COPY complete: {transferred / 1024**2:,.1f} MiB", started)
 
 
 def main():
@@ -45,6 +64,8 @@ def main():
     os.environ.setdefault("PGPORT", "5432")
 
     
+    started = monotonic()
+    report("Connecting to PostgreSQL...", started)
     with psycopg.connect() as conn:
         with conn.cursor() as cur:
             cur.execute("SELECT to_regclass('dutch_railway_dw.dim_date')")
@@ -54,6 +75,7 @@ def main():
                     .read_text(encoding="utf-8-sig")
                 )
             cur.execute("SET LOCAL search_path TO dutch_railway_dw, public")
+            report("Waiting for warehouse write lock...", started)
             cur.execute("""
                 LOCK TABLE dim_date, dim_station, dim_service,
                            fact_station_stop
@@ -94,14 +116,16 @@ def main():
                     actual_platform TEXT
                 ) ON COMMIT DROP
             """)
-            print("Streaming CSV into staging...", flush=True)
+            report("Streaming CSV into staging...", started)
             copy_csv(cur, CSV_PATH)
+            report("Counting staged stops...", started)
             cur.execute("SELECT COUNT(*) FROM stage_services")
             expected = cur.fetchone()[0]
             if expected == 0:
                 raise ValueError("CSV contains no station stops.")
 
             
+            report(f"Validating {expected:,} staged stops...", started)
             cur.execute("CREATE UNIQUE INDEX ON stage_services (stop_id)")
             cur.execute("ANALYZE stage_services")
             cur.execute("""
@@ -117,7 +141,7 @@ def main():
                     f"Conflicting station names for code {conflict[0]}"
                 )
 
-            print("Loading dimensions...", flush=True)
+            report("Loading date dimension...", started)
             cur.execute("""
                 INSERT INTO dim_date
                     (date_key, full_date, day_number, month_number,
@@ -134,13 +158,14 @@ def main():
                     SELECT DISTINCT service_date AS d FROM stage_services
                 ) dates
             """)
+            report(f"Inserted {cur.rowcount:,} dates; loading stations...", started)
             cur.execute("""
                 INSERT INTO dim_station (station_code, station_name)
                 SELECT station_code, MAX(station_name)
                 FROM stage_services
                 GROUP BY station_code
             """)
-            # Conflicting service attributes fail the existing UNIQUE constraint.
+            report(f"Inserted {cur.rowcount:,} stations; loading services...", started)
             cur.execute("""
                 INSERT INTO dim_service
                     (source_service_id, service_type, company, train_number)
@@ -148,10 +173,11 @@ def main():
                     service_id, service_type, company, train_number
                 FROM stage_services
             """)
+            report(f"Inserted {cur.rowcount:,} services; analyzing dimensions...", started)
             cur.execute("ANALYZE dim_station")
             cur.execute("ANALYZE dim_service")
 
-            print("Loading station-stop facts...", flush=True)
+            report(f"Loading {expected:,} station-stop facts...", started)
             cur.execute("""
                 INSERT INTO fact_station_stop (
                     source_stop_id, date_key, station_key, service_key,
@@ -180,8 +206,10 @@ def main():
                 raise ValueError(
                     f"Row mismatch: staged {expected}, inserted {inserted}"
                 )
+            report(f"Inserted {inserted:,} facts; analyzing fact table...", started)
             cur.execute("ANALYZE fact_station_stop")
-    print(f"Committed {inserted:,} station-stop facts.")
+            report("Committing warehouse load...", started)
+    report(f"Committed {inserted:,} station-stop facts.", started)
 
 
 if __name__ == "__main__":
