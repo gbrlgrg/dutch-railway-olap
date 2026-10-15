@@ -20,7 +20,7 @@ export type NavItem = {
 export const primaryNavItems: NavItem[] = [
   { id: "overview", label: "Overview", icon: LayoutDashboard, isImplemented: true },
   { id: "time-trend", label: "Time & Trend Analysis", icon: ChartNoAxesCombined, isImplemented: true },
-  { id: "olap-explorer", label: "OLAP Explorer", icon: PanelsTopLeft, isImplemented: false },
+  { id: "olap-explorer", label: "OLAP Explorer", icon: PanelsTopLeft, isImplemented: true },
 ];
 
 export const secondaryNavItems: NavItem[] = [

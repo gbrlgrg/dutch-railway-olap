@@ -1,92 +1,124 @@
-import { ArrowLeft, Database, PanelsTopLeft, Sparkles } from "lucide-react";
+import { useState } from "react";
 
 import { AppHeader } from "@/components/layout/AppHeader";
 import type { PageId } from "@/components/layout/navigation";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { OlapQueryBuilder } from "@/components/olap-explorer/OlapQueryBuilder";
+import { OlapResultMatrix } from "@/components/olap-explorer/OlapResultMatrix";
+import { OlapSummaryCards } from "@/components/olap-explorer/OlapSummaryCards";
+import { OlapVisualizationCard } from "@/components/olap-explorer/OlapVisualizationCard";
+import { ReportTemplatesBar } from "@/components/olap-explorer/ReportTemplatesBar";
+import { SliceDiceFilterBar } from "@/components/olap-explorer/SliceDiceFilterBar";
+import { ErrorState } from "@/components/overview/ChartCard";
+import { useOlapExplorerData } from "@/hooks/useOlapExplorerData";
+import type { DateRangePreset } from "@/types/overview";
 
 type OlapExplorerPageProps = {
   onNavigate?: (page: PageId) => void;
 };
 
 export function OlapExplorerPage({ onNavigate }: OlapExplorerPageProps) {
+  const [dateRange, setDateRange] = useState<DateRangePreset>("all-data");
+
+  const {
+    status,
+    data,
+    config,
+    loadTemplate,
+    setRowDimension,
+    setColumnDimension,
+    swapDimensions,
+    setMeasure,
+    setFilterValues,
+    clearFilters,
+    setSortBy,
+    refresh,
+  } = useOlapExplorerData();
+
+  const isRefreshing = status === "loading";
+  const summary = data?.summary ?? null;
+
   return (
     <div className="flex min-w-0 flex-1 flex-col">
       <AppHeader
         title="OLAP Explorer"
-        subtitle="Multi-dimensional slice, dice, roll-up, and drill-down cube explorer."
+        subtitle="Configure dimensions, measures, filters, and pivot layouts for multi-dimensional railway analysis."
         activePage="olap-explorer"
         onNavigate={onNavigate}
-        dateRange="all-data"
-        onDateRangeChange={() => {}}
-        onRefresh={() => {}}
-        isRefreshing={false}
-        dataTimestamp="2025-01-02T06:00:00Z"
-        isDemoData={true}
+        dateRange={dateRange}
+        onDateRangeChange={setDateRange}
+        onRefresh={refresh}
+        isRefreshing={isRefreshing}
+        dataTimestamp={data?.dataTimestamp ?? null}
+        isDemoData={data?.isDemoData ?? true}
       />
 
-      <main className="mx-auto w-full max-w-4xl flex-1 space-y-6 px-4 py-12 sm:px-6">
-        <Card className="text-center p-8 border-dashed border-2">
-          <CardHeader className="flex flex-col items-center gap-3">
-            <span className="flex size-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
-              <PanelsTopLeft className="size-7" aria-hidden="true" />
-            </span>
-            <div className="space-y-1">
-              <div className="flex items-center justify-center gap-2">
-                <CardTitle className="text-xl font-bold">OLAP Explorer</CardTitle>
-                <Badge variant="outline" className="text-xs uppercase tracking-wide border-primary/30 text-primary bg-primary/5">
-                  Page 3 of 3 Planned
-                </Badge>
-              </div>
-              <CardDescription className="text-sm max-w-md mx-auto">
-                Next in development: Free-form multi-dimensional query builder supporting dimension selection (Operator, Station, Time, Service Type), pivoting, slice-and-dice, and aggregate measures.
-              </CardDescription>
-            </div>
-          </CardHeader>
+      <main className="mx-auto w-full max-w-7xl flex-1 space-y-6 px-4 py-6 sm:px-6">
+        {status === "error" && !data ? (
+          <ErrorState onRetry={refresh} message="OLAP cube data could not be computed." />
+        ) : (
+          <>
+            {/* 1. Quick Report Templates Bar (Includes Operator & Station Analysis) */}
+            <ReportTemplatesBar
+              activeTemplateId={config.templateId}
+              onSelectTemplate={loadTemplate}
+            />
 
-          <CardContent className="space-y-6 pt-4">
-            <div className="grid sm:grid-cols-3 gap-3 text-left">
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
-                <p className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
-                  <Sparkles className="size-3 text-primary" /> Slice & Dice
-                </p>
-                <p className="text-xs text-muted-foreground">Filter on arbitrary operator and station combinations.</p>
-              </div>
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
-                <p className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
-                  <Database className="size-3 text-primary" /> Predefined SQL
-                </p>
-                <p className="text-xs text-muted-foreground">Powered by indexed PostgreSQL views and star-schema queries.</p>
-              </div>
-              <div className="rounded-lg border bg-muted/30 p-3 space-y-1">
-                <p className="text-xs font-semibold flex items-center gap-1.5 text-foreground">
-                  <PanelsTopLeft className="size-3 text-primary" /> Dynamic Pivots
-                </p>
-                <p className="text-xs text-muted-foreground">Cross-tabulate measures across rows and columns.</p>
-              </div>
-            </div>
+            {/* 2. OLAP Query Configuration Panel */}
+            <OlapQueryBuilder
+              rowDimension={config.rowDimension}
+              columnDimension={config.columnDimension}
+              measure={config.measure}
+              onRowDimensionChange={setRowDimension}
+              onColumnDimensionChange={setColumnDimension}
+              onSwapDimensions={swapDimensions}
+              onMeasureChange={setMeasure}
+            />
 
-            <div className="flex items-center justify-center gap-3 pt-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => onNavigate?.("overview")}
-                className="gap-1.5 text-xs"
-              >
-                <ArrowLeft className="size-3.5" />
-                Back to Overview
-              </Button>
-              <Button
-                size="sm"
-                onClick={() => onNavigate?.("time-trend")}
-                className="gap-1.5 text-xs bg-primary text-primary-foreground"
-              >
-                Explore Time & Trend Analysis
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
+            {/* 3. Slice and Dice Filter Bar with live OLAP operation badges */}
+            <SliceDiceFilterBar
+              activeBadges={data?.activeBadges ?? []}
+              filters={config.filters}
+              onFilterChange={setFilterValues}
+              onClearFilters={clearFilters}
+            />
+
+            {/* 4. Sub-Cube Summary KPI Cards */}
+            <OlapSummaryCards
+              summary={summary}
+              isLoading={status === "loading" && !data}
+            />
+
+            {/* 5. Dynamic OLAP Chart Visualization */}
+            <OlapVisualizationCard
+              isPivotMode={data?.isPivotMode ?? false}
+              pivotResult={data?.pivotResult ?? null}
+              groupedResult={data?.groupedResult ?? null}
+              measure={config.measure}
+              status={status}
+              onRetry={refresh}
+            />
+
+            {/* 6. Dynamic Pivot Result Matrix / Grouped Analytical Table */}
+            <OlapResultMatrix
+              isPivotMode={data?.isPivotMode ?? false}
+              pivotResult={data?.pivotResult ?? null}
+              groupedResult={data?.groupedResult ?? null}
+              measure={config.measure}
+              sortBy={config.sortBy}
+              onSortChange={setSortBy}
+              status={status}
+              onRetry={refresh}
+            />
+
+            {/* Illustrative data disclaimer */}
+            {data?.isDemoData && (
+              <p className="text-xs text-muted-foreground">
+                All metrics, cross-tabulations, operator names, and station figures in this OLAP cube are illustrative
+                mock data and do not represent real Dutch railway operations statistics.
+              </p>
+            )}
+          </>
+        )}
       </main>
     </div>
   );

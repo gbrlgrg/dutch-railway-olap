@@ -27,7 +27,7 @@ const LINKS: ExploreLink[] = [
     title: "OLAP Explorer",
     description: "Multi-dimensional cube analysis: choose dimensions, roll-up, drill-down, slice, dice, and pivot.",
     icon: PanelsTopLeft,
-    isImplemented: false,
+    isImplemented: true,
   },
 ];
 
