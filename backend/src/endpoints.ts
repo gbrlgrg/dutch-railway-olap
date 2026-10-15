@@ -142,4 +142,248 @@ export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) =
       return reply.code(500).send({ error: 'Database query failed' })
     }
   })
+
+  // Q4
+  app.get('/olap-dice', async (request, reply) => {
+    try {
+      const {
+        operators,
+        service_types,
+        station_ids,
+        start_date,
+        end_date
+      } = request.query as {
+        operators?: string
+        service_types?: string
+        station_ids?: string
+        start_date?: string
+        end_date?: string
+      }
+
+      const parseList = (value?: string): string[] | null => {
+        const values = value
+          ?.split(',')
+          .map(value => value.trim())
+          .filter(Boolean)
+
+        return values?.length ? values : null
+      }
+
+      const parseStationIds = (
+        value?: string
+      ): number[] | null | undefined => {
+        if (!value?.trim()) return null
+
+        const parts = value.split(',').map(v => v.trim())
+
+        if (
+          parts.some(
+            v =>
+              !/^[1-9]\d*$/.test(v) ||
+              !Number.isSafeInteger(Number(v))
+          )
+        ) {
+          return undefined
+        }
+
+        return [...new Set(parts.map(Number))]
+      }
+
+      const isDate = (value?: string): boolean => {
+        if (!value) return true
+        if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return false
+
+        const date = new Date(`${value}T00:00:00Z`)
+
+        return (
+          !Number.isNaN(date.getTime()) &&
+          date.toISOString().slice(0, 10) === value
+        )
+      }
+
+      if (
+        !isDate(start_date) ||
+        !isDate(end_date) ||
+        (start_date && end_date && start_date > end_date)
+      ) {
+        return reply.code(400).send({
+          error:
+            'Invalid date range. Use valid YYYY-MM-DD dates and ensure start_date is not after end_date.'
+        })
+      }
+
+      const stationIds = parseStationIds(station_ids)
+
+      if (stationIds === undefined) {
+        return reply.code(400).send({
+          error:
+            'Invalid station_ids. Supply comma-separated positive numeric station_key values.'
+        })
+      }
+
+      const result = await db.query(`
+        WITH filtered_stops AS (
+          SELECT
+            sv.company AS operator,
+            sv.service_type,
+            sv.service_key,
+            st.station_key,
+            st.station_code,
+            st.station_name,
+            f.stop_count,
+            f.departure_delay,
+            f.departure_cancelled
+          FROM dutch_railway_dw.fact_station_stop f
+          JOIN dutch_railway_dw.dim_service sv
+            ON sv.service_key = f.service_key
+          JOIN dutch_railway_dw.dim_station st
+            ON st.station_key = f.station_key
+          JOIN dutch_railway_dw.dim_date d
+            ON d.date_key = f.date_key
+          WHERE
+            ($1::text[] IS NULL
+              OR sv.company = ANY($1::text[]))
+            AND ($2::text[] IS NULL
+              OR sv.service_type = ANY($2::text[]))
+            AND ($3::bigint[] IS NULL
+              OR st.station_key = ANY($3::bigint[]))
+            AND ($4::date IS NULL
+              OR d.full_date >= $4::date)
+            AND ($5::date IS NULL
+              OR d.full_date <= $5::date)
+        ),
+
+        grouped AS (
+          SELECT
+            operator,
+            service_type,
+            station_key,
+            station_code,
+            station_name,
+
+            GROUPING(operator) AS g_operator,
+            GROUPING(service_type) AS g_service_type,
+            GROUPING(station_key) AS g_station,
+
+            SUM(stop_count) AS total_stops,
+
+            COUNT(DISTINCT service_key)
+              AS distinct_services,
+
+            COUNT(DISTINCT service_key) FILTER (
+              WHERE departure_cancelled IS NOT NULL
+            ) AS known_services,
+
+            COUNT(DISTINCT service_key) FILTER (
+              WHERE departure_cancelled IS TRUE
+            ) AS cancelled_services,
+
+            COUNT(*) FILTER (
+              WHERE departure_cancelled IS TRUE
+            ) AS cancelled_departures,
+
+            COUNT(*) FILTER (
+              WHERE departure_cancelled IS NOT NULL
+            ) AS known_departures,
+
+            ROUND(
+              AVG(departure_delay) FILTER (
+                WHERE departure_cancelled IS NOT TRUE
+              ),
+              2
+            ) AS average_departure_delay,
+
+            COUNT(*) FILTER (
+              WHERE departure_delay IS NOT NULL
+                AND departure_cancelled IS NOT TRUE
+            ) AS valid_observations
+
+          FROM filtered_stops
+
+          GROUP BY GROUPING SETS (
+            (
+              operator,
+              service_type,
+              station_key,
+              station_code,
+              station_name
+            ),
+            (operator, service_type),
+            (operator),
+            ()
+          )
+        )
+
+        SELECT
+          operator,
+          service_type,
+          station_key,
+          station_code,
+          station_name,
+
+          CASE
+            WHEN g_operator = 1
+              THEN 'Grand Total'
+            WHEN g_service_type = 1
+              THEN 'Operator Summary'
+            WHEN g_station = 1
+              THEN 'Operator-Service Summary'
+            ELSE 'Station Detail'
+          END AS grouping_level,
+
+          total_stops,
+          distinct_services,
+          known_services,
+          cancelled_services,
+
+          ROUND(
+            100.0 * cancelled_services
+            / NULLIF(known_services, 0),
+            2
+          ) AS service_cancellation_rate,
+
+          cancelled_departures,
+          known_departures,
+
+          ROUND(
+            100.0 * cancelled_departures
+            / NULLIF(known_departures, 0),
+            2
+          ) AS cancellation_rate,
+
+          ROUND(
+            100.0 * cancelled_departures
+            / NULLIF(known_departures, 0),
+            2
+          ) AS departure_cancellation_rate,
+
+          average_departure_delay,
+          valid_observations
+
+        FROM grouped
+
+        ORDER BY
+          g_operator,
+          operator NULLS LAST,
+          g_service_type,
+          service_type NULLS LAST,
+          g_station,
+          station_code NULLS LAST
+      `, [
+        parseList(operators),
+        parseList(service_types),
+        stationIds,
+        start_date || null,
+        end_date || null
+      ])
+
+      return result.rows
+    } catch (error) {
+      request.log.error(error)
+
+      return reply.code(500).send({
+        error: 'Database query failed'
+      })
+    }
+  })
 }
