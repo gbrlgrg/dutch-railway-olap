@@ -128,18 +128,6 @@ def main():
             report(f"Validating {expected:,} staged stops...", started)
             cur.execute("CREATE UNIQUE INDEX ON stage_services (stop_id)")
             cur.execute("ANALYZE stage_services")
-            cur.execute("""
-                SELECT station_code
-                FROM stage_services
-                GROUP BY station_code
-                HAVING COUNT(DISTINCT station_name) > 1
-                LIMIT 1
-            """)
-            conflict = cur.fetchone()
-            if conflict:
-                raise ValueError(
-                    f"Conflicting station names for code {conflict[0]}"
-                )
 
             report("Loading date dimension...", started)
             cur.execute("""
@@ -159,52 +147,84 @@ def main():
                 ) dates
             """)
             report(f"Inserted {cur.rowcount:,} dates; loading stations...", started)
+            # Names can vary for one code; use the most frequent non-null name.
             cur.execute("""
                 INSERT INTO dim_station (station_code, station_name)
-                SELECT station_code, MAX(station_name)
+                SELECT DISTINCT ON (station_code) station_code, station_name
                 FROM stage_services
-                GROUP BY station_code
+                GROUP BY station_code, station_name
+                ORDER BY station_code, (station_name IS NULL),
+                         COUNT(*) DESC, station_name COLLATE "C"
             """)
             report(f"Inserted {cur.rowcount:,} stations; loading services...", started)
+            # shortcut: one tuple per service; model variants if stop-specific train numbers are needed.
             cur.execute("""
                 INSERT INTO dim_service
                     (source_service_id, service_type, company, train_number)
-                SELECT DISTINCT
+                SELECT DISTINCT ON (service_id)
                     service_id, service_type, company, train_number
                 FROM stage_services
+                GROUP BY service_id, service_type, company, train_number
+                ORDER BY service_id, COUNT(*) DESC,
+                         service_type COLLATE "C" NULLS LAST,
+                         company COLLATE "C" NULLS LAST,
+                         train_number NULLS LAST
             """)
             report(f"Inserted {cur.rowcount:,} services; analyzing dimensions...", started)
             cur.execute("ANALYZE dim_station")
             cur.execute("ANALYZE dim_service")
 
             report(f"Loading {expected:,} station-stop facts...", started)
-            cur.execute("""
-                INSERT INTO fact_station_stop (
-                    source_stop_id, date_key, station_key, service_key,
-                    arrival_time, arrival_delay, arrival_cancelled,
-                    departure_time, departure_delay, departure_cancelled
-                )
-                SELECT
-                    s.stop_id,
-                    TO_CHAR(s.service_date, 'YYYYMMDD')::INTEGER,
-                    station.station_key,
-                    service.service_key,
-                    s.arrival_time,
-                    s.arrival_delay,
-                    s.arrival_cancelled,
-                    s.departure_time,
-                    s.departure_delay,
-                    s.departure_cancelled
-                FROM stage_services s
-                JOIN dim_station station
-                  ON station.station_code = s.station_code
-                JOIN dim_service service
-                  ON service.source_service_id = s.service_id
-            """)
-            inserted = cur.rowcount
-            if inserted != expected:
-                raise ValueError(
-                    f"Row mismatch: staged {expected}, inserted {inserted}"
+            inserted = 0
+            last_id = None
+            # Bound the foreign-key trigger queue without committing partial data.
+            while inserted < expected:
+                cur.execute("""
+                    WITH batch AS MATERIALIZED (
+                        SELECT stop_id, service_date, station_code, service_id,
+                               arrival_time, arrival_delay, arrival_cancelled,
+                               departure_time, departure_delay, departure_cancelled
+                        FROM stage_services
+                        WHERE %(last_id)s::BIGINT IS NULL OR stop_id > %(last_id)s
+                        ORDER BY stop_id
+                        LIMIT 100000
+                    ), loaded AS (
+                        INSERT INTO fact_station_stop (
+                            source_stop_id, date_key, station_key, service_key,
+                            arrival_time, arrival_delay, arrival_cancelled,
+                            departure_time, departure_delay, departure_cancelled
+                        )
+                        SELECT
+                            s.stop_id,
+                            TO_CHAR(s.service_date, 'YYYYMMDD')::INTEGER,
+                            station.station_key,
+                            service.service_key,
+                            s.arrival_time,
+                            s.arrival_delay,
+                            s.arrival_cancelled,
+                            s.departure_time,
+                            s.departure_delay,
+                            s.departure_cancelled
+                        FROM batch s
+                        JOIN dim_station station
+                          ON station.station_code = s.station_code
+                        JOIN dim_service service
+                          ON service.source_service_id = s.service_id
+                        RETURNING source_stop_id
+                    )
+                    SELECT (SELECT MAX(stop_id) FROM batch),
+                           (SELECT COUNT(*) FROM batch),
+                           (SELECT COUNT(*) FROM loaded)
+                """, {"last_id": last_id})
+                last_id, batch_count, loaded_count = cur.fetchone()
+                if batch_count == 0 or loaded_count != batch_count:
+                    raise ValueError(
+                        f"Fact batch mismatch: staged {batch_count}, inserted {loaded_count}"
+                    )
+                inserted += loaded_count
+                report(
+                    f"Facts: {inserted:,}/{expected:,} ({inserted / expected:.1%})",
+                    started,
                 )
             report(f"Inserted {inserted:,} facts; analyzing fact table...", started)
             cur.execute("ANALYZE fact_station_stop")
