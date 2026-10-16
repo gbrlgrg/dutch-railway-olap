@@ -2,7 +2,7 @@ import type { FastifyPluginAsync } from 'fastify'
 import type { Pool } from 'pg'
 
 export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) => {
-  // Q2
+  // Q2__-
   app.get('/station-delays', async (request, reply) => {
     try {
       const result = await db.query(`
