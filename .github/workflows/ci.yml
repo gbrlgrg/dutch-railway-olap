@@ -1,116 +1,160 @@
+name: Dutch Railway OLAP CI
 
-# name: Dutch Railway OLAP CI
+on:
+  pull_request:
+    branches: [main, development]
+  push:
+    branches: [main, development]
 
-# on:
-#   pull_request:
-#     branches: [main, development]
-#   push:
-#     branches: [main, development]
+permissions:
+  contents: read
 
-# permissions:
-#   contents: read
+jobs:
+  frontend:
+    name: Frontend checks
+    runs-on: ubuntu-latest
 
-# jobs:
-#   frontend:
-#     name: Frontend checks
-#     runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
 
-#     defaults:
-#       run:
-#         working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
 
-#     steps:
-#       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
 
-#       - uses: actions/setup-node@v4
-#         with:
-#           node-version: 22
-#           cache: npm
-#           cache-dependency-path: frontend/package-lock.json
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run build
 
-#       - run: npm ci
-#       - run: npm run lint
-#       - run: npm test -- --run
-#       - run: npm run build
+  backend:
+    name: Backend checks
+    runs-on: ubuntu-latest
 
-#   backend:
-#     name: Backend checks
-#     runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: dutch_railway_test
+          POSTGRES_USER: dutch_railway
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dutch_railway -d dutch_railway_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
-#     services:
-#       postgres:
-#         image: postgres:17
-#         env:
-#           POSTGRES_DB: railpulse_test
-#           POSTGRES_USER: railpulse
-#           POSTGRES_PASSWORD: test_password
-#         ports:
-#           - 5432:5432
-#         options: >-
-#           --health-cmd "pg_isready -U dutch-railway-olap -d dutch-railway-olap_test"
-#           --health-interval 5s
-#           --health-timeout 5s
-#           --health-retries 10
+    defaults:
+      run:
+        working-directory: backend
 
-#     defaults:
-#       run:
-#         working-directory: backend
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGDATABASE: dutch_railway_test
+      PGUSER: dutch_railway
+      PGPASSWORD: test_password
 
-#     env:
-#       DATABASE_URL: postgres://dutch-railway-olap:test_password@localhost:5432/dutch-railway-olap_test
+    steps:
+      - uses: actions/checkout@v4
 
-#     steps:
-#       - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
 
-#       - uses: actions/setup-node@v4
-#         with:
-#           node-version: 22
-#           cache: npm
-#           cache-dependency-path: backend/package-lock.json
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: etl/requirements.txt
 
-#       - uses: actions/setup-python@v5
-#         with:
-#           python-version: "3.12"
+      - name: Seed test warehouse via ETL
+        run: |
+          pip install -r ../etl/requirements.txt
+          mkdir -p ../data
+          cat << 'EOF' > ../data/services-2025.csv
+          Service:RDT-ID,Service:Date,Service:Type,Service:Company,Service:Train number,Service:Completely cancelled,Service:Partly cancelled,Service:Maximum delay,Stop:RDT-ID,Stop:Station code,Stop:Station name,Stop:Arrival time,Stop:Arrival delay,Stop:Arrival cancelled,Stop:Departure time,Stop:Departure delay,Stop:Departure cancelled,Stop:Platform change,Stop:Planned platform,Stop:Actual platform
+          1001,2025-01-01,Intercity,NS,1401,false,false,5,10001,ASD,Amsterdam Centraal,2025-01-01T08:00:00Z,2,false,2025-01-01T08:05:00Z,5,false,false,1,1
+          1002,2025-01-02,Sprinter,NS,4002,false,false,3,10002,UT,Utrecht Centraal,2025-01-02T09:00:00Z,3,false,2025-01-02T09:05:00Z,3,false,false,2,2
+          1003,2025-11-15,Intercity,NS,1403,false,false,4,10003,ASD,Amsterdam Centraal,2025-11-15T10:00:00Z,1,false,2025-11-15T10:05:00Z,4,false,false,1,1
+          1004,2025-12-15,Intercity,NS,1404,false,false,6,10004,UT,Utrecht Centraal,2025-12-15T11:00:00Z,2,false,2025-12-15T11:05:00Z,6,false,false,2,2
+          EOF
+          python ../etl/load_services.py
 
-#       - run: npm ci
-#       - run: npm run lint
-#       - run: npm test -- --run
-#       - run: npx tsc --noEmit
+      - run: npm ci
+      - run: npm run lint
+      - run: npm run typecheck
+      - run: npm run build
 
-#   etl:
-#     name: ETL checks
-#     runs-on: ubuntu-latest
+      - name: Run functional endpoint tests
+        run: |
+          node dist/app.js &
+          SERVER_PID=$!
+          for i in $(seq 1 30); do
+            if curl -s http://127.0.0.1:3000/overview-kpis > /dev/null; then
+              break
+            fi
+            sleep 1
+          done
+          node test-functional.mjs
+          kill $SERVER_PID
 
-#     services:
-#       postgres:
-#         image: postgres:17
-#         env:
-#           POSTGRES_DB: railpulse_test
-#           POSTGRES_USER: railpulse
-#           POSTGRES_PASSWORD: test_password
-#         ports:
-#           - 5432:5432
-#         options: >-
-#           --health-cmd "pg_isready -U dutch-railway-olap -d dutch-railway-olap_test"
-#           --health-interval 5s
-#           --health-timeout 5s
-#           --health-retries 10
+  etl:
+    name: ETL checks
+    runs-on: ubuntu-latest
 
-#     defaults:
-#       run:
-#         working-directory: etl
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_DB: dutch_railway_test
+          POSTGRES_USER: dutch_railway
+          POSTGRES_PASSWORD: test_password
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U dutch_railway -d dutch_railway_test"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
 
-#     env:
-#       DATABASE_URL: postgres://dutch-railway-olap:test_password@localhost:5432/dutch-railway-olap_test
+    defaults:
+      run:
+        working-directory: etl
 
-#     steps:
-#       - uses: actions/checkout@v4
+    env:
+      PGHOST: localhost
+      PGPORT: "5432"
+      PGDATABASE: dutch_railway_test
+      PGUSER: dutch_railway
+      PGPASSWORD: test_password
 
-#       - uses: actions/setup-python@v5
-#         with:
-#           python-version: "3.12"
-#           cache: pip
-#           cache-dependency-path: etl/requirements.txt
+    steps:
+      - uses: actions/checkout@v4
 
-#       - run: pip install -r requirements.txt
-#       - run: python -m pytest -v
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: etl/requirements.txt
+
+      - run: pip install -r requirements.txt
+
+      - name: Verify ETL load into star schema
+        run: |
+          mkdir -p ../data
+          cat << 'EOF' > ../data/services-2025.csv
+          Service:RDT-ID,Service:Date,Service:Type,Service:Company,Service:Train number,Service:Completely cancelled,Service:Partly cancelled,Service:Maximum delay,Stop:RDT-ID,Stop:Station code,Stop:Station name,Stop:Arrival time,Stop:Arrival delay,Stop:Arrival cancelled,Stop:Departure time,Stop:Departure delay,Stop:Departure cancelled,Stop:Platform change,Stop:Planned platform,Stop:Actual platform
+          1001,2025-01-01,Intercity,NS,1401,false,false,5,10001,ASD,Amsterdam Centraal,2025-01-01T08:00:00Z,2,false,2025-01-01T08:05:00Z,5,false,false,1,1
+          1002,2025-01-02,Sprinter,NS,4002,false,false,3,10002,UT,Utrecht Centraal,2025-01-02T09:00:00Z,3,false,2025-01-02T09:05:00Z,3,false,false,2,2
+          EOF
+          python load_services.py
+          python -c "import psycopg; conn = psycopg.connect(); cur = conn.cursor(); cur.execute('SELECT COUNT(*) FROM dutch_railway_dw.fact_station_stop'); assert cur.fetchone()[0] == 2"
