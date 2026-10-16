@@ -23,42 +23,43 @@ import type {
 } from "@/types/olapExplorer";
 
 export const OLAP_OPERATORS = [
-  "Operator A",
-  "Operator B",
-  "Operator C",
-  "Operator D",
-  "Operator E",
+  "NS",
+  "Arriva",
+  "Qbuzz",
+  "Keolis",
+  "Blauwnet",
+  "Connexxion",
+  "NS International",
 ];
 
 export const OLAP_STATIONS = [
-  "Station Centraal",
-  "Station Noord",
-  "Station Zuid",
-  "Station Oost",
-  "Station West",
-  "Station Haven",
-  "Station Brug",
-  "Station Markt",
+  "Utrecht Centraal",
+  "Amsterdam Centraal",
+  "Schiphol Airport",
+  "Rotterdam Centraal",
+  "Den Haag HS",
+  "Eindhoven Centraal",
+  "Leiden Centraal",
+  "Zwolle",
 ];
 
 export const OLAP_SERVICE_TYPES = [
   "Intercity",
   "Sprinter",
-  "International",
+  "Sneltrein",
+  "Stoptrein",
+  "Eurocity Direct",
 ];
 
-export const OLAP_YEARS = ["2023", "2024"];
+export const OLAP_YEARS = ["2025"];
 
 export const OLAP_QUARTERS = [
-  "2023-Q1", "2023-Q2", "2023-Q3", "2023-Q4",
-  "2024-Q1", "2024-Q2", "2024-Q3", "2024-Q4",
+  "2025-Q1", "2025-Q2", "2025-Q3", "2025-Q4",
 ];
 
 export const OLAP_MONTHS = [
-  "2023-01", "2023-02", "2023-03", "2023-04", "2023-05", "2023-06",
-  "2023-07", "2023-08", "2023-09", "2023-10", "2023-11", "2023-12",
-  "2024-01", "2024-02", "2024-03", "2024-04", "2024-05", "2024-06",
-  "2024-07", "2024-08", "2024-09", "2024-10", "2024-11", "2024-12",
+  "2025-01", "2025-02", "2025-03", "2025-04", "2025-05", "2025-06",
+  "2025-07", "2025-08", "2025-09", "2025-10", "2025-11", "2025-12",
 ];
 
 const MONTH_NAMES_SHORT = [
@@ -164,14 +165,14 @@ export const PREDEFINED_TEMPLATES: ReportTemplate[] = [
   {
     id: "template-operator-month-delay",
     title: "Operator × Month Delay Matrix",
-    description: "Pivot cross-tabulation of average departure delay by operator across months, sliced to 2024.",
+    description: "Pivot cross-tabulation of average departure delay by operator across months, sliced to 2025.",
     category: "matrix",
     config: {
       templateId: "template-operator-month-delay",
       rowDimension: "operator",
       columnDimension: "month",
       measure: "averageDepartureDelayMinutes",
-      filters: { ...EMPTY_FILTERS, years: ["2024"] },
+      filters: { ...EMPTY_FILTERS, years: ["2025"] },
       sortBy: "measure-desc",
     },
   },
@@ -199,7 +200,7 @@ export const PREDEFINED_TEMPLATES: ReportTemplate[] = [
       rowDimension: "station",
       columnDimension: "serviceType",
       measure: "averageDepartureDelayMinutes",
-      filters: { ...EMPTY_FILTERS, years: ["2024"] },
+      filters: { ...EMPTY_FILTERS, years: ["2025"] },
       sortBy: "measure-desc",
     },
   },

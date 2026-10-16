@@ -364,7 +364,7 @@ export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) =
           FROM dutch_railway_dw.fact_station_stop f
           JOIN dutch_railway_dw.dim_date d ON d.date_key = f.date_key
           JOIN dutch_railway_dw.dim_service sv ON sv.service_key = f.service_key
-          WHERE d.year_number = 2025
+          WHERE d.year_number = $1
           GROUP BY sv.company
         )
         SELECT group_value, average_departure_delay, distinct_services,
@@ -373,7 +373,7 @@ export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) =
                  AS cancellation_rate
         FROM grouped
         ORDER BY average_departure_delay DESC NULLS LAST, group_value
-      `, [year])
+      `, [Number(year)])
       return result.rows
     } catch (error) {
       request.log.error(error)

@@ -18,6 +18,11 @@ const db = new Pool({
   user: process.env.PGUSER ?? process.env.POSTGRES_USER,
   password: process.env.PGPASSWORD ?? process.env.POSTGRES_PASSWORD,
 })
+db.on('connect', (client) => {
+  client
+    .query("SET work_mem = '256MB'; SET max_parallel_workers_per_gather = 4;")
+    .catch((error: unknown) => app.log.error(error))
+})
 db.on('error', (error) => app.log.error(error))
 app.addHook('onClose', async () => db.end())
 app.register(endpoints, { db })
