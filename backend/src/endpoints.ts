@@ -342,9 +342,14 @@ export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) =
   // Q3
   app.get('/olap-slice', async (request, reply) => {
     try {
+      const { year = '2025' } = request.query as { year?: string }
+      if (!/^\d{4}$/.test(year) || Number(year) < 1900 || Number(year) > 2100) {
+        return reply.code(400).send({ error: 'year must be between 1900 and 2100.' })
+      }
+
       const result = await db.query(`
         WITH grouped AS (
-          SELECT sv.operator AS group_value,
+          SELECT sv.company AS group_value,
                  ROUND(AVG(f.departure_delay) FILTER (
                    WHERE f.departure_cancelled IS NOT TRUE
                  ), 2) AS average_departure_delay,
@@ -359,8 +364,8 @@ export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) =
           FROM dutch_railway_dw.fact_station_stop f
           JOIN dutch_railway_dw.dim_date d ON d.date_key = f.date_key
           JOIN dutch_railway_dw.dim_service sv ON sv.service_key = f.service_key
-          WHERE d.year = 2024
-          GROUP BY sv.operator
+          WHERE d.year_number = $1::smallint
+          GROUP BY sv.company
         )
         SELECT group_value, average_departure_delay, distinct_services,
                cancelled_services, valid_observations,
@@ -368,7 +373,7 @@ export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) =
                  AS cancellation_rate
         FROM grouped
         ORDER BY average_departure_delay DESC NULLS LAST, group_value
-      `)
+      `, [year])
       return result.rows
     } catch (error) {
       request.log.error(error)
