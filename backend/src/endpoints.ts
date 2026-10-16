@@ -301,10 +301,10 @@ export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) =
       const result = await db.query(`
         WITH periods AS (
           SELECT 'current' AS period,
-                DATE '2024-01-01' AS start_date,
-                DATE '2024-01-31' AS end_date
+                DATE '2025-12-01' AS start_date,
+                DATE '2025-12-31' AS end_date
           UNION ALL
-          SELECT 'previous', DATE '2023-12-01', DATE '2023-12-31'
+          SELECT 'previous', DATE '2025-11-01', DATE '2025-11-30'
         ),
         period_kpis AS (
           SELECT p.period,
@@ -364,7 +364,7 @@ export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) =
           FROM dutch_railway_dw.fact_station_stop f
           JOIN dutch_railway_dw.dim_date d ON d.date_key = f.date_key
           JOIN dutch_railway_dw.dim_service sv ON sv.service_key = f.service_key
-          WHERE d.year_number = $1::smallint
+          WHERE d.year_number = 2025
           GROUP BY sv.company
         )
         SELECT group_value, average_departure_delay, distinct_services,
