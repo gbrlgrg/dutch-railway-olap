@@ -98,7 +98,14 @@ CREATE TABLE dutch_railway_dw.fact_station_stop (
 );
 
 -- ============================================================
--- 5. VERIFY THE SCHEMA
+-- 5. INDEXES
+-- ============================================================
+
+CREATE INDEX idx_fact_station_stop_date
+ON dutch_railway_dw.fact_station_stop (date_key);
+
+-- ============================================================
+-- 6. VERIFY THE SCHEMA
 -- ============================================================
 
 SELECT
