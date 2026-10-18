@@ -1,9 +1,7 @@
 import {
   ChartNoAxesCombined,
-  Database,
   LayoutDashboard,
   PanelsTopLeft,
-  Settings,
   type LucideIcon,
 } from "lucide-react";
 
@@ -23,7 +21,3 @@ export const primaryNavItems: NavItem[] = [
   { id: "olap-explorer", label: "OLAP Explorer", icon: PanelsTopLeft, isImplemented: true },
 ];
 
-export const secondaryNavItems: NavItem[] = [
-  { label: "Dataset Status", icon: Database, isImplemented: false },
-  { label: "Settings", icon: Settings, isImplemented: false },
-];

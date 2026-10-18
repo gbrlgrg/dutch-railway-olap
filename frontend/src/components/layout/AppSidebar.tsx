@@ -2,11 +2,9 @@ import { TrainFront } from "lucide-react";
 
 import {
   primaryNavItems,
-  secondaryNavItems,
   type NavItem,
   type PageId,
 } from "@/components/layout/navigation";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 
 function NavEntry({
@@ -81,14 +79,6 @@ export function SidebarContent({
                 isActive={item.id === activePage}
                 onNavigate={onNavigate}
               />
-            </li>
-          ))}
-        </ul>
-        <Separator className="my-4 bg-sidebar-border" />
-        <ul className="space-y-1">
-          {secondaryNavItems.map((item) => (
-            <li key={item.label}>
-              <NavEntry item={item} isActive={false} />
             </li>
           ))}
         </ul>
