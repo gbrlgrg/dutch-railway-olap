@@ -35,8 +35,10 @@ export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) =
 
       const result = await db.query(`
         WITH filtered AS (
-          SELECT d.year_number, d.quarter_number, d.month_number,
-                 d.day_number,
+          SELECT d.year_number,
+                 CASE WHEN $3 <> 'year' THEN d.quarter_number END AS quarter_number,
+                 CASE WHEN $3 IN ('month', 'day') THEN d.month_number END AS month_number,
+                 CASE WHEN $3 = 'day' THEN d.day_number END AS day_number,
                  f.service_key, f.station_key, f.stop_count,
                  f.arrival_delay, f.arrival_cancelled,
                  f.departure_delay, f.departure_cancelled
@@ -47,9 +49,9 @@ export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) =
         ), rolled AS (
           SELECT year_number, quarter_number, month_number, day_number,
                  GROUPING(year_number) AS g_year,
-                 GROUPING(quarter_number) AS g_quarter,
-                 GROUPING(month_number) AS g_month,
-                 GROUPING(day_number) AS g_day,
+                 CASE WHEN $3 = 'year' THEN 1 ELSE GROUPING(year_number) END AS g_quarter,
+                 CASE WHEN $3 IN ('year', 'quarter') THEN 1 ELSE GROUPING(year_number) END AS g_month,
+                 CASE WHEN $3 <> 'day' THEN 1 ELSE GROUPING(year_number) END AS g_day,
                  SUM(stop_count) AS stop_count,
                  COUNT(DISTINCT station_key) AS distinct_stations,
                  COUNT(DISTINCT service_key) AS distinct_services,
@@ -62,7 +64,7 @@ export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) =
                  ROUND(AVG(arrival_delay) FILTER (WHERE arrival_delay IS NOT NULL AND arrival_cancelled IS NOT TRUE), 2) AS average_arrival_delay,
                  ROUND(AVG(departure_delay) FILTER (WHERE departure_delay IS NOT NULL AND departure_cancelled IS NOT TRUE), 2) AS average_departure_delay
           FROM filtered
-          GROUP BY ROLLUP (year_number, quarter_number, month_number, day_number)
+          GROUP BY GROUPING SETS ((year_number, quarter_number, month_number, day_number), ())
         ), selected AS (
           SELECT *,
             CASE

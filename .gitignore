@@ -11,7 +11,7 @@ coverage/
 __pycache__/
 .pytest_cache/
 *.pyc
-
+sql/optimization
 
 *.csv
 *.parquet
