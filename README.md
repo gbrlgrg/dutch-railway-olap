@@ -1,126 +1,267 @@
-# dutch-railway-olap
+# Dutch Railway OLAP Analysis & Data Warehouse
 
-## Run the backend
+> **Course / Project:** STADVDB - Advanced Database Systems (MCO1)  
+> **Group Number:** Group `[Insert Group Number Here]`
 
-Install Node.js 24 or newer (with npm), then run:
+---
 
-```sh
-cd backend
-npm install
-npm run dev
-```
+## Group Members
 
-The TypeScript Fastify server starts at `http://127.0.0.1:3000` and reloads when source files change. No endpoints are registered yet, so requests return `404 Not Found`. Press Ctrl+C to stop it.
+| Name | Role / Contribution |
+| :--- | :--- |
+| `Angelo Joaquin Barras` | `[e.g., ETL & Data Warehouse Modeling]` |
+| `Gaibril Kyle Gregorio` | `[e.g., Backend API & OLAP Queries]` |
+| `Jeremy Leano` | `[e.g., Frontend & OLAP Explorer UI]` |
+| `Paul Martin Ryan Crisologo` | `[e.g., Data Analysis & Documentation]` |
 
-`npm run dev` uses readable logs with local timestamps and colored levels in the terminal. `npm start` keeps structured JSON logs.
+---
 
-Optionally create `backend/.env` by copying `backend/.env.example` to customize these settings:
+## Project Overview
 
-```dotenv
-HOST=127.0.0.1
-PORT=3000
-LOG_LEVEL=info
-```
+This project implements an end-to-end **On-Line Analytical Processing (OLAP)** system for Dutch railway service performance and delay analysis. It consists of:
 
-Run backend commands from `backend/`. Existing environment variables take precedence over `.env`; the root database `.env` is separate. Restart the server after changing environment settings.
+- **Data Warehouse (PostgreSQL 17 in Docker):** Star schema containing dimension tables (`dim_date`, `dim_station`, `dim_service`) and a granular fact table (`fact_station_stop`).
+- **ETL Pipeline (Python):** Ingests, cleans, and stages raw service logs into the star schema using high-throughput streaming COPY.
+- **Backend API (Fastify + TypeScript):** High-performance OLAP query engine providing roll-up, drill-down, slice, dice, and pivot operations.
+- **Frontend Dashboard (React 19 + Vite + Tailwind CSS):** Interactive OLAP explorer, trend visualizations, and KPI scorecards.
 
-To compile and run the backend:
+---
 
-```sh
-npm run build
-npm start
-```
+## Tech Stack
 
-Check code quality with `npm run lint` and `npm run typecheck`. This scaffold runs locally without a database connection.
+- **Frontend:** React 19, TypeScript, Vite, Tailwind CSS v4, Recharts, Lucide Icons
+- **Backend:** Fastify 5, TypeScript, Node.js (>=24), `pg` (node-postgres)
+- **Database:** PostgreSQL 17 (Docker containerized)
+- **ETL:** Python 3.10+, `psycopg 3`, `python-dotenv`
 
-## Run the database
+---
 
-The database runs in Docker as PostgreSQL 17. Start Docker Desktop before running the commands below.
+## Prerequisites
 
-### First-time setup
+Ensure you have the following installed before running the project:
 
-Run commands from the repository root (the folder containing `docker-compose.yml`). If your terminal is currently in `backend/`, run `cd ..` first.
+- [Docker Desktop](https://www.docker.com/products/docker-desktop/) (must be running)
+- [Node.js](https://nodejs.org/) (version 20 LTS or Node 24 recommended) & `npm`
+- [Python](https://www.python.org/) (version 3.10 or newer)
 
-Create a `.env` file in the repository root if you do not already have one:
+---
+
+## Step-by-Step Setup & Execution
+
+### 1. Environment Configuration
+
+Create a `.env` file in the **project root** directory (copy from the example below or ensure values match):
 
 ```dotenv
 POSTGRES_USER=stadvdb_mco1
 POSTGRES_PASSWORD=local_dev_password
 POSTGRES_DB=dutch-railway
+POSTGRES_PORT=5432
 ```
 
-Use a non-empty password for a new database and keep `.env` out of version control. If your database is already initialized, keep its existing credentials.
+> [!NOTE]
+> The backend automatically reads this root `.env` file when starting. You can optionally create `backend/.env` if you want to override specific server variables (e.g., `PORT=3000`, `HOST=127.0.0.1`).
 
-### Start and check the database
+---
+
+### 2. Start the Database (Docker)
+
+From the project root directory, launch the PostgreSQL container:
 
 ```powershell
 docker compose up -d --wait postgres
+```
+
+Verify that the container is healthy:
+
+```powershell
 docker compose ps
 ```
 
-`up` creates the container if needed, starts it in the background, and waits for the health check. A successful status looks like:
-
+Expected output:
 ```text
 NAME          SERVICE    STATUS                   PORTS
 postgres_db   postgres   Up ... (healthy)          127.0.0.1:5432->5432/tcp
 ```
 
-An empty `docker compose ps` table means no containers are running for this project. Use `docker compose ps -a` to also see stopped containers.
+---
 
-### Connect to PostgreSQL
+### 3. Run the ETL Pipeline (One-Time Data Ingestion)
 
-Connect using a PostgreSQL client with these settings:
+The ETL script creates the star schema and populates the data warehouse with service logs from `data/services-2025.csv`.
 
-| Setting | Value |
-| --- | --- |
-| Host | `localhost` |
-| Port | `5432` |
-| User | The `POSTGRES_USER` value in `.env` |
-| Password | The `POSTGRES_PASSWORD` value in `.env` |
-| Database | The `POSTGRES_DB` value in `.env` |
+From the project root:
 
-With the example settings above, open an interactive SQL session inside the container:
+```powershell
+# Create and activate Python virtual environment
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+
+# Install ETL dependencies
+pip install -r etl/requirements.txt
+
+# Run the data loader
+python etl/load_services.py
+```
+
+> [!TIP]
+> The loader will stream the CSV into staging and populate `dim_date`, `dim_station`, `dim_service`, and `fact_station_stop`. Wait for the confirmation message indicating the warehouse load is complete.
+
+---
+
+### 4. Start the Backend API
+
+Open a new terminal window:
+
+```powershell
+cd backend
+npm install
+npm run dev
+```
+
+- The API server will start at `http://127.0.0.1:3000`.
+- Fastify provides live reload with local timestamps and colored request logs.
+
+---
+
+### 5. Start the Frontend Dashboard
+
+Open another terminal window:
+
+```powershell
+cd frontend
+npm install
+npm run dev
+```
+
+- The frontend development server will start at `http://localhost:5173`.
+- Open `http://localhost:5173` in your web browser to interact with the OLAP dashboard.
+
+---
+
+## Public Sharing via ngrok (Remote Demo)
+
+Because the Vite dev server forwards all `/api/*` calls directly to the local Fastify backend, **you only need to expose the frontend port via ngrok**.
+
+### Option A: Development Mode (with Live Reload)
+
+1. Make sure backend (`npm run dev`) and frontend (`npm run dev`) are running locally.
+2. In a separate terminal, expose the Vite dev server (port `5173`):
+   ```powershell
+   ngrok http 5173 --region ap
+   ```
+3. Share the generated `https://<unique-id>.ngrok-free.app` URL.
+
+### Option B: Production Preview Mode (Recommended for Demos)
+
+For external viewers, serving the bundled production build is much faster through ngrok than dev mode:
+
+```powershell
+# 1. Build and preview frontend (port 4173)
+cd frontend
+npm run build
+npm run preview
+
+# 2. In another terminal, tunnel port 4173
+ngrok http 4173 --region ap
+```
+
+> [!IMPORTANT]
+> Your local machine must remain **powered on, awake, and connected to the internet** with the backend, frontend, and Docker running while anyone is accessing the ngrok link.
+
+---
+
+## Database Management & Useful Commands
+
+### Interactive SQL Shell (`psql`)
+Open an interactive `psql` session inside the running container:
 
 ```powershell
 docker compose exec postgres psql -U stadvdb_mco1 -d dutch-railway
 ```
 
-If your `.env` values differ, replace the names after `-U` and `-d`. Try `SELECT 1;` to check the connection, and type `\q` to exit the SQL session. Exiting `psql` does not stop the database.
+Quick verification queries:
+```sql
+-- Set search path to the warehouse schema
+SET search_path TO dutch_railway_dw, public;
 
-### Stop and restart
+-- Check record counts
+SELECT 'fact_station_stop' AS table_name, count(*) FROM fact_station_stop
+UNION ALL
+SELECT 'dim_service', count(*) FROM dim_service
+UNION ALL
+SELECT 'dim_station', count(*) FROM dim_station
+UNION ALL
+SELECT 'dim_date', count(*) FROM dim_date;
+```
+*(Type `\q` to exit psql)*
 
-Stop just PostgreSQL while keeping its container and saved data:
-
+### Container Lifecycle
 ```powershell
+# Stop the database (preserves data)
 docker compose stop postgres
-```
 
-Start the stopped container again:
-
-```powershell
+# Restart the database
 docker compose start postgres
-docker compose ps
-```
 
-You can also use `docker compose up -d --wait postgres` again to start it and wait until healthy.
-
-To remove the project's containers and network while keeping database data, use `docker compose down`.
-
-Data is stored in the `postgres_data` Docker volume and survives container and computer restarts. **`docker compose down -v` deletes the database volume and its saved data.** Changing the user, password, or database name in `.env` does not update an already initialized database.
-
-### Troubleshooting
-
-View database logs if startup fails:
-
-```powershell
+# View database logs
 docker compose logs --tail 100 postgres
+
+# Stop and remove containers (data preserved in postgres_data volume)
+docker compose down
+
+# WARNING: Completely remove database including saved data
+docker compose down -v
 ```
 
-If Docker reports that port `5432` is unavailable or access is forbidden, check for another local PostgreSQL instance in PowerShell:
+### Port 5432 Conflict Troubleshooting
+If port `5432` is already in use by a local PostgreSQL service:
+1. Check conflicting process:
+   ```powershell
+   Get-NetTCPConnection -LocalPort 5432 -State Listen | Select-Object LocalAddress, LocalPort, OwningProcess
+   ```
+2. Or change the port mapping in `docker-compose.yml` to `"127.0.0.1:5433:5432"` and connect on port `5433`.
 
-```powershell
-Get-NetTCPConnection -LocalPort 5432 -State Listen |
-  Select-Object LocalAddress, LocalPort, OwningProcess
+---
+
+## Project Structure
+
+```text
+dutch-railway-olap/
+├── backend/                  # Fastify REST API & OLAP query endpoints
+│   ├── src/
+│   │   ├── app.ts            # Fastify server entry point
+│   │   └── endpoints.ts      # OLAP analytical endpoints (slice, dice, pivot, etc.)
+│   └── package.json
+├── frontend/                 # React 19 + Tailwind CSS + Vite application
+│   ├── src/
+│   │   ├── components/       # UI charts, tables, filter bars, and controls
+│   │   ├── services/         # API fetchers for OLAP analytics
+│   │   └── App.tsx           # Main application view
+│   ├── vite.config.ts        # Proxy configuration & allowed ngrok hosts
+│   └── package.json
+├── etl/                      # Data pipeline & ingestion scripts
+│   ├── load_services.py      # Staging & star schema loader
+│   └── requirements.txt      # Python dependencies (psycopg, python-dotenv)
+├── sql/
+│   └── dutch_railway_dw.sql  # DDL script for star schema & dimensions
+├── data/                     # Raw dataset (services-2025.csv)
+├── docker-compose.yml        # PostgreSQL 17 service configuration
+└── README.md
 ```
 
-Stop the conflicting PostgreSQL instance if you do not need it, then retry startup. Alternatively, change the port mapping in `docker-compose.yml` to `"127.0.0.1:5433:5432"` and run `docker compose up -d --wait postgres` again. Connect from your computer using port `5433` afterward; PostgreSQL inside the container still uses `5432`. Setting `POSTGRES_PORT` in `.env` alone does not change the current Compose port mapping.
+---
+
+## Scripts Reference Cheatsheet
+
+| Location | Command | Description |
+| :--- | :--- | :--- |
+| **Root** | `docker compose up -d --wait postgres` | Start database container |
+| **Root** | `python etl/load_services.py` | Run ETL data ingestion |
+| **`backend/`** | `npm run dev` | Run backend in development watch mode |
+| **`backend/`** | `npm run build` | Compile TypeScript backend to `dist/` |
+| **`backend/`** | `npm start` | Run compiled backend |
+| **`backend/`** | `npm run typecheck` | Run TypeScript type checks |
+| **`frontend/`** | `npm run dev` | Run frontend in development mode (`:5173`) |
+| **`frontend/`** | `npm run build` | Build optimized production bundle |
+| **`frontend/`** | `npm run preview` | Serve production build locally (`:4173`) |
