@@ -104,6 +104,18 @@ CREATE TABLE dutch_railway_dw.fact_station_stop (
 CREATE INDEX idx_fact_station_stop_date
 ON dutch_railway_dw.fact_station_stop (date_key);
 
+CREATE INDEX idx_fact_station_stop_date_station
+ON dutch_railway_dw.fact_station_stop (date_key, station_key);
+
+CREATE INDEX idx_fact_station_stop_date_service
+ON dutch_railway_dw.fact_station_stop (date_key, service_key);
+
+CREATE INDEX idx_dim_service_company
+ON dutch_railway_dw.dim_service (company);
+
+CREATE INDEX idx_dim_service_type
+ON dutch_railway_dw.dim_service (service_type);
+
 -- ============================================================
 -- 6. VERIFY THE SCHEMA
 -- ============================================================
