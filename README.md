@@ -1,7 +1,7 @@
 # Dutch Railway OLAP Analysis & Data Warehouse
 
 > **Course / Project:** STADVDB - Advanced Database Systems (MCO1)  
-> **Group Number:** Group `[Insert Group Number Here]`
+> **Group Number:** Group `Group 2`
 
 ---
 
