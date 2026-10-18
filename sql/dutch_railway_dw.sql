@@ -42,7 +42,6 @@ CREATE TABLE dutch_railway_dw.dim_date (
 
 CREATE TABLE dutch_railway_dw.dim_station (
     station_key       BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
-    source_station_id VARCHAR(100),
     station_code      VARCHAR(50),
     station_name      VARCHAR(255)
 );

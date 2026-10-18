@@ -12,6 +12,19 @@ export default defineConfig({
     },
   },
   server: {
+    // Allow access through ngrok tunnels
+    allowedHosts: true,
+    proxy: {
+      '/api': {
+        target: 'http://127.0.0.1:3000',
+        changeOrigin: true,
+        rewrite: (reqPath) => reqPath.replace(/^\/api/, ''),
+      },
+    },
+  },
+  // `vite preview` does not inherit server.proxy, so mirror it here
+  preview: {
+    allowedHosts: true,
     proxy: {
       '/api': {
         target: 'http://127.0.0.1:3000',
