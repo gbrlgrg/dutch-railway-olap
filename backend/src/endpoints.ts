@@ -462,7 +462,31 @@ export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) =
       }
 
       const result = await db.query(`
-        WITH filtered_stops AS (
+        WITH filtered_services AS (
+          SELECT
+            service_key,
+            company,
+            service_type
+          FROM dutch_railway_dw.dim_service
+          WHERE
+            ($1::text[] IS NULL
+              OR company = ANY($1::text[]))
+            AND ($2::text[] IS NULL
+              OR service_type = ANY($2::text[]))
+        ),
+
+        filtered_stations AS (
+          SELECT
+            station_key,
+            station_code,
+            station_name
+          FROM dutch_railway_dw.dim_station
+          WHERE
+            ($3::bigint[] IS NULL
+              OR station_key = ANY($3::bigint[]))
+        ),
+
+        filtered_stops AS (
           SELECT
             sv.company AS operator,
             sv.service_type,
@@ -474,23 +498,15 @@ export const endpoints: FastifyPluginAsync<{ db: Pool }> = async (app, { db }) =
             f.departure_delay,
             f.departure_cancelled
           FROM dutch_railway_dw.fact_station_stop f
-          JOIN dutch_railway_dw.dim_service sv
+          JOIN filtered_services sv
             ON sv.service_key = f.service_key
-          JOIN dutch_railway_dw.dim_station st
+          JOIN filtered_stations st
             ON st.station_key = f.station_key
-          JOIN dutch_railway_dw.dim_date d
-            ON d.date_key = f.date_key
           WHERE
-            ($1::text[] IS NULL
-              OR sv.company = ANY($1::text[]))
-            AND ($2::text[] IS NULL
-              OR sv.service_type = ANY($2::text[]))
-            AND ($3::bigint[] IS NULL
-              OR st.station_key = ANY($3::bigint[]))
-            AND ($4::date IS NULL
-              OR d.full_date >= $4::date)
+            ($4::date IS NULL
+              OR f.date_key >= TO_CHAR($4::date, 'YYYYMMDD')::integer)
             AND ($5::date IS NULL
-              OR d.full_date <= $5::date)
+              OR f.date_key <= TO_CHAR($5::date, 'YYYYMMDD')::integer)
         ),
 
         grouped AS (
