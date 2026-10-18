@@ -9,10 +9,10 @@
 
 | Name | Role / Contribution |
 | :--- | :--- |
-| `Angelo Joaquin Barras` | `[e.g., ETL & Data Warehouse Modeling]` |
-| `Gaibril Kyle Gregorio` | `[e.g., Backend API & OLAP Queries]` |
-| `Jeremy Leano` | `[e.g., Frontend & OLAP Explorer UI]` |
-| `Paul Martin Ryan Crisologo` | `[e.g., Data Analysis & Documentation]` |
+| `Angelo Joaquin Barras` | `OLAP Query#1 and Query#5` |
+| `Gaibril Kyle Gregorio` | `Frontend & UI, OLAP Overview Query and Query#3` |
+| `Jeremy Leano` | `ETL Script and OLAP Query#2` |
+| `Paul Martin Ryan Crisologo` | `Data Warehouse Modeling and OLAP Query#4` |
 
 ---
 
